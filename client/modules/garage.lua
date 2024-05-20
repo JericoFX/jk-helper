@@ -3,7 +3,7 @@ local QBCore = lib.load("client.modules.core")
 function Garages:constructor(id, title, position, options, returnCoords, spawnCoords, livery)
     self.id = id
     self.title = title
-    self.position = position
+    self.position = position or "top-right"
     self.options = type(options) == "table" and options or { options }
     self.returnCoords = returnCoords
     self.spawnCoords = spawnCoords
@@ -70,5 +70,6 @@ end
 
 function Garages:delete()
     self.garage = nil
-    self = nil
 end
+
+return Garages

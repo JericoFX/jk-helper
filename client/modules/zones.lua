@@ -1,6 +1,6 @@
 local Zones = lib.class("Zones")
 local ox = exports.ox_inventory
-
+local Garages = lib.load("client.modules.garage")
 function Zones:constructor(name, zoneType, coords, data, onEnter, onExit, inside)
     self.name = name
     self.type = zoneType
@@ -10,6 +10,7 @@ function Zones:constructor(name, zoneType, coords, data, onEnter, onExit, inside
     self.onExit = onExit
     self.inside = inside
     self.zone = nil
+    self.garage = nil
     return self
 end
 
@@ -26,7 +27,9 @@ function Zones:Create()
         data = self.data or {}
     })
     if self.type == "garage" then
-
+       self.garage =  Garages:new(
+        self.name,self.title,"top-right",self.data.options,self.data.returnCoords,self.data.spawnCoords,self.data.livery
+       )
     end
 end
 
@@ -42,7 +45,7 @@ function Zones:Open()
     elseif self.type == "shop" then
         ox:openInventory("shop", { type = self.name, id = self.data.id })
     elseif self.type == "garage" then
-
+        self.garage:open()
     end
 end
 

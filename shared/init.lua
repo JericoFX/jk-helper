@@ -43,32 +43,32 @@ return {
             },
             garage = {
                 coords = vector3(-643.5857, -344.9204, 34.8216),
-                options = { -- Options for the garage
-                    {
-                        label = "Long Vehicle",
-                        args = { hash = "police" },
-
+                data= {
+                    options = { -- Options for the garage
+                        {
+                            label = "Long Vehicle",
+                            args = { hash = "police" },
+    
+                        },
+                        {
+                            label = "Stafford",
+                            args = { hash = "police2" },
+    
+                        },
+                        {
+                            label = "Hammer",
+                            args = { hash = "police3" },
+    
+                        },
                     },
-                    {
-                        label = "Stafford",
-                        args = { hash = "police2" },
-
-                    },
-                    {
-                        label = "Hammer",
-                        args = { hash = "police3" },
-
-                    },
+                    title = "Police Garage",
+                    blip = false,
+                    markerCoods = vector3(0, 0, 0),     -- This means take the vehicle from this coords
+                    returnCoords = vector3(0, 0, 0),    -- This means return the vehicle to this coords
+                    spawnVehicle = vector4(0, 0, 0, 0), -- Spawn coords
+                    livery = false,
                 },
-                title = "Police Garage",
-                blip = false,
-                markerCoods = vector3(0, 0, 0),     -- This means take the vehicle from this coords
-                label = "Police Garage",            -- Name of the garage
-                returnCoords = vector3(0, 0, 0),    -- This means return the vehicle to this coords
-                spawnVehicle = vector4(0, 0, 0, 0), -- Spawn coords
-                livery = false,
                 onDutyOnly = false,
-                data = {}
             },
             boss = {
                 coords = vector3(-635.6767, -349.9048, 34.8154),
