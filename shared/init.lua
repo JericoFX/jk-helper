@@ -67,6 +67,8 @@ return {
                     returnCoords = vector3(0, 0, 0),    -- This means return the vehicle to this coords
                     spawnVehicle = vector4(0, 0, 0, 0), -- Spawn coords
                     livery = false,
+
+
                 },
                 onDutyOnly = false,
             },

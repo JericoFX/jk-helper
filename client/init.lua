@@ -107,6 +107,15 @@ local function createZones()
             Points[k].shop:Create()
             els = nil
         end
+        if el.garage then
+            local els = lib.table.deepclone(el.garage)
+            els.data.type = "garage"
+            els.data.label = els.data.title,
+            els.data.job = k
+            Points[k].garage = Zones:new(k,"garage",els.coords,els.data, onEnter, onExit, inside)
+            Points[k].garage:Create()
+            els = nil
+        end
     end
 end
 
