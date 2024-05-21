@@ -39,6 +39,8 @@ function Zones:Open()
         TriggerEvent("qb-bossmenu:client:OpenMenu")
     elseif self.type == "shop" then
         ox:openInventory("shop", { type = self.name, id = self.data.id })
+    elseif self.type == "cloth" then
+        self.data.data()
     end
 end
 

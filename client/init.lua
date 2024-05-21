@@ -118,6 +118,13 @@ local function createZones()
                 els.returnCoords, els.spawnCoords, els.livery)
             els = nil
         end
+        if el.cloth then
+            local els = lib.table.deepclone(el.cloth)
+             Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event},
+                onEnter, onExit, inside)
+            Points[k].cloth:Create()
+            els = nil
+        end
     end
 end
 

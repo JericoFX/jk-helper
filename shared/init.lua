@@ -73,7 +73,10 @@ return {
             },
             cloth = {
                 coords = vector3(-627.8377, -359.2138, 34.8079),
-                data = {}
+                event = function()
+                    --Here put the code for the corresponding script EX:
+                    -- TriggerEvent("qb-clothing:client:openOutfitMenu")
+                end
             }
         }
     }
