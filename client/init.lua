@@ -4,6 +4,7 @@ local Zones = lib.load("client.modules.zones")
 local Garages = lib.load("client.modules.garage")
 local Points = {}
 local Player = {}
+local Blips = {}
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     Player = QBCore.Functions.GetPlayerData()
@@ -16,6 +17,19 @@ end)
 RegisterNetEvent('QBCore:Client:SetPlayerData', function(val)
     Player.job = val
 end)
+
+local function CreateBlip(blipConfig)
+    local blip = AddBlipForCoord(blipConfig.coords.x, blipConfig.coords.y, blipConfig.coords.z)
+    SetBlipSprite(blip, blipConfig.sprite)
+    SetBlipColour(blip, blipConfig.color)
+    SetBlipScale(blip, blipConfig.scale)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString(blipConfig.label)
+    EndTextCommandSetBlipName(blip)
+    return blip
+end
+
 local function onEnter(self)
     lib.showTextUI(("[E] Open %s"):format(self.data.type):upper())
 end
@@ -62,15 +76,21 @@ local function createZones()
                 shop = {},
                 garage = {},
                 boss = {},
-                cloth = {}
+                cloth = {},
+               
             }
+
         end
         if el.stash then
             local els = lib.table.deepclone(el.stash)
             Points[k].stash = Zones:new(
                 k, "stash", els.coords, { type = "stash", label = els.label, job = k }, onEnter, onExit, inside)
             Points[k].stash:Create()
+            if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
+
         end
         if el.privateStash then
             local els = lib.table.deepclone(el.privateStash)
@@ -78,6 +98,9 @@ local function createZones()
                 k, "privateStash", els.coords, { type = "privateStash", label = els.label, job = k }, onEnter, onExit,
                 inside)
             Points[k].privateStash:Create()
+             if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
         end
         if el.duty then
@@ -85,6 +108,9 @@ local function createZones()
             Points[k].duty = Zones:new(
                 k, "duty", els.coords, { type = "duty", label = els.label, job = k }, onEnter, onExit, inside)
             Points[k].duty:Create()
+              if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
         end
         if el.boss then
@@ -92,6 +118,9 @@ local function createZones()
             Points[k].boss = Zones:new(
                 k, "boss", els.coords, { type = "boss", label = els.label, job = k }, onEnter, onExit, inside)
             Points[k].boss:Create()
+              if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
         end
         if el.shop then
@@ -102,6 +131,9 @@ local function createZones()
                         { type = "shop", label = els.label, job = k, id = i }, onEnter, onExit, inside)
                     Points[k].shop:Create()
                 end
+            end
+              if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
             end
             Points[k].shop = Zones:new(k, "shop", els.locations[1], { type = "shop", label = els.label, job = k, id = 1 },
                 onEnter, onExit, inside)
@@ -116,6 +148,9 @@ local function createZones()
             Points[k].garage = Garages:new(k, "garage", els.coords, els.data, onEnter, onExit, inside, els.title,
                 els.options,
                 els.returnCoords, els.spawnCoords, els.livery)
+                  if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
         end
         if el.cloth then
@@ -123,9 +158,21 @@ local function createZones()
              Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event},
                 onEnter, onExit, inside)
             Points[k].cloth:Create()
+              if els.blip then
+                Blips[#Blips+1] = CreateBlip(els.blip)
+            end
             els = nil
         end
     end
 end
 
 CreateThread(createZones)
+
+
+AddEventHandler("onResourceStop",function(res) 
+    if cache.resource == res then
+        for i = 1, #Blips do
+            RemoveBlip(Blips[i])
+        end
+    end
+end)
