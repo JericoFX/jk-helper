@@ -43,33 +43,29 @@ return {
             },
             garage = {
                 coords = vector3(-643.5857, -344.9204, 34.8216),
-                data= {
-                    options = { -- Options for the garage
-                        {
-                            label = "Long Vehicle",
-                            args = { hash = "police" },
-    
-                        },
-                        {
-                            label = "Stafford",
-                            args = { hash = "police2" },
-    
-                        },
-                        {
-                            label = "Hammer",
-                            args = { hash = "police3" },
-    
-                        },
+                returnCoords = vector3(-649.5404, -350.2661, 34.6685),          -- This means return the vehicle to this coords
+                spawnCoords = vector4(-642.4623, -361.1997, 34.7600, 212.8935), -- Spawn coords
+                options = {                                                     -- Options for the garage
+                    {
+                        label = "Long Vehicle",
+                        args = { hash = "police" },
+
                     },
-                    title = "Police Garage",
-                    blip = false,
-                    markerCoods = vector3(0, 0, 0),     -- This means take the vehicle from this coords
-                    returnCoords = vector3(0, 0, 0),    -- This means return the vehicle to this coords
-                    spawnVehicle = vector4(0, 0, 0, 0), -- Spawn coords
-                    livery = false,
+                    {
+                        label = "Stafford",
+                        args = { hash = "police2" },
 
+                    },
+                    {
+                        label = "Hammer",
+                        args = { hash = "police3" },
 
+                    },
                 },
+                title = "Police Garage",
+                blip = false,
+                livery = false,
+                data = {},
                 onDutyOnly = false,
             },
             boss = {

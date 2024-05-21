@@ -1,6 +1,7 @@
 local QBCore = lib.load("client.modules.core")
 local Config = lib.load("shared.init")
 local Zones = lib.load("client.modules.zones")
+local Garages = lib.load("client.modules.garage")
 local Points = {}
 local Player = {}
 
@@ -110,10 +111,11 @@ local function createZones()
         if el.garage then
             local els = lib.table.deepclone(el.garage)
             els.data.type = "garage"
-            els.data.label = els.data.title,
+            els.data.label = els.title
             els.data.job = k
-            Points[k].garage = Zones:new(k,"garage",els.coords,els.data, onEnter, onExit, inside)
-            Points[k].garage:Create()
+            Points[k].garage = Garages:new(k, "garage", els.coords, els.data, onEnter, onExit, inside, els.title,
+                els.options,
+                els.returnCoords, els.spawnCoords, els.livery)
             els = nil
         end
     end
