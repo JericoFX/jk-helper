@@ -1,5 +1,13 @@
 local Garages = lib.class("Garage")
 local QBCore = lib.load("client.modules.core")
+
+--- Check if the plate has the correct patter JK+ 6 random numbers
+local function isValid(str)
+    local pattern = "^JK%d%d%d%d%d%d$"
+    return string.match(str, pattern) ~= nil
+end
+
+
 function Garages:constructor(name, zoneType, coords, data, onEnter, onExit, inside, title, options,
                              returnCoords, spawnCoords, livery)
     self.name = name
@@ -77,6 +85,14 @@ local function inside(self)
                 type = "error"
             })
             return
+        end
+        if not isValid(GetVehicleNumberPlateText(veh)) then
+               lib.notify({
+                title = "Error",
+                description = "You didnt take the vehicle from this place",
+                type = "error"
+            })
+            return 
         end
         local alert = lib.alertDialog({
             header = 'Save Vehicle',
