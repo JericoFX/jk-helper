@@ -155,7 +155,7 @@ local function createZones()
         end
         if el.cloth then
             local els = lib.table.deepclone(el.cloth)
-             Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event},
+             Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event,job = k},
                 onEnter, onExit, inside)
             Points[k].cloth:Create()
               if els.blip then
