@@ -5,10 +5,11 @@ description "JK Helper"
 
 version "0.0.1"
 
-client_script "client/init.lua"
+client_scripts { "client/admin.lua", "client/init.lua" }
 
-shared_scripts { '@ox_lib/init.lua', "shared/init.lua" }
-server_scripts { "@oxmysql/lib/MySQL.lua", "server/init.lua" }
+
+shared_scripts { '@ox_lib/init.lua', "shared/init.lua", "shared/vehicle.lua" }
+server_scripts { "@oxmysql/lib/MySQL.lua", "server/init.lua", "server/db.lua" }
 
 
 lua54 'yes'
@@ -19,32 +20,10 @@ is_cfxv2 'yes'
 
 files {
     "client/modules/*.*",
+    "shared/*.*",
 }
 
 dependencies {
     '/onesync',
     "ox_lib"
 }
-
--- jobs {
---     police {
---         blip = true,
---         stash = true,
---         privateStash = true,
---         clothes = true,
---         garage = true,
---         boss = true,
---         duty = true,
---         dj = true
---     },
---     ambulance {
---         blip = true,
---         stash = true,
---         privateStash = true,
---         clothes = true,
---         garage = true,
---         boss = true,
---         duty = true,
---         dj = true
---     }
--- }

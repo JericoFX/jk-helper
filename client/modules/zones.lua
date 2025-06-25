@@ -21,7 +21,7 @@ function Zones:Create()
         size = vec3(5, 5, 5),
         rotation = 0,
         onEnter = self.onEnter,
-        debug = true,
+        debug = false,
         onExit = self.onExit,
         inside = self.inside,
         data = self.data or {}
@@ -42,6 +42,13 @@ function Zones:Open()
     elseif self.type == "cloth" then
         self.data.data()
     end
+end
+
+function Zones:delete()
+    if self.zone and self.zone.remove then
+        self.zone:remove()
+    end
+    self.zone = nil
 end
 
 return Zones
