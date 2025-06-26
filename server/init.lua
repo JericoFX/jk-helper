@@ -5,41 +5,59 @@ local DB = lib.load("server.db")
 local Config = {}
 
 --- helper to register points in ox_inventory once Config is loaded
+local DEFAULT_STASH = { slots = 100, weight = 100000 }
+
+local function registerJobStash(job, opts, isPrivate)
+    ox_inventory:RegisterStash(
+        isPrivate and (job .. "_private") or job,
+        opts.label or (job .. (isPrivate and " Private" or " Stash")),
+        opts.slots or DEFAULT_STASH.slots,
+        opts.weight or DEFAULT_STASH.weight,
+        isPrivate or false,
+        opts.job or { [job] = opts.grade or 0 }
+    )
+end
+
+local function registerJobShop(job, shop)
+    local requireJob = shop.requireJob ~= false
+    local baseName = shop.name or (job .. " Shop")
+    local inventory = shop.inventory or {}
+
+    if table.type(shop.locations) == "array" and #shop.locations >= 2 then
+        for i = 1, #shop.locations do
+            local cfg = {
+                name = baseName,
+                inventory = inventory,
+                locations = shop.locations[i],
+            }
+            if requireJob then
+                cfg.groups = shop.grades or { [job] = shop.grade or 0 }
+            end
+            ox_inventory:RegisterShop(job .. i, cfg)
+        end
+    end
+
+    local cfg = {
+        name = baseName,
+        inventory = inventory,
+        locations = shop.locations,
+    }
+    if requireJob then
+        cfg.groups = shop.grades or { [job] = shop.grade or 0 }
+    end
+    ox_inventory:RegisterShop(job, cfg)
+end
+
 local function registerInventoryPoints()
     for job, data in pairs(Config.jobs) do
-        local v = data
-        if v.stash then
-            ox_inventory:RegisterStash(job, v.stash.label or (job .. " Stash"), v.stash.slots or 100,
-                v.stash.weight or 100000, false, v.stash.job or { [job] = v.stash.grade or 0 })
+        if data.stash then
+            registerJobStash(job, data.stash, false)
         end
-        if v.privateStash then
-            ox_inventory:RegisterStash(job .. "_private", v.privateStash.label or (job .. " Private"),
-                v.privateStash.slots or 100, v.privateStash.weight or 100000, true,
-                v.privateStash.job or { [job] = v.privateStash.grade or 0 })
+        if data.privateStash then
+            registerJobStash(job, data.privateStash, true)
         end
-        if v.shop then
-            if table.type(v.shop.locations) == "array" and #v.shop.locations >= 2 then
-                for i = 1, #v.shop.locations do
-                    local shopCfg = {
-                        name = v.shop.name or (job .. " Shop"),
-                        inventory = v.shop.inventory or {},
-                        locations = v.shop.locations[i],
-                    }
-                    if v.shop.requireJob ~= false then
-                        shopCfg.groups = v.shop.grades or { [job] = v.shop.grade or 0 }
-                    end
-                    ox_inventory:RegisterShop(job .. i, shopCfg)
-                end
-            end
-            local shopCfg = {
-                name = v.shop.name or (job .. " Shop"),
-                inventory = v.shop.inventory or {},
-                locations = v.shop.locations,
-            }
-            if v.shop.requireJob ~= false then
-                shopCfg.groups = v.shop.grades or { [job] = v.shop.grade or 0 }
-            end
-            ox_inventory:RegisterShop(job, shopCfg)
+        if data.shop then
+            registerJobShop(job, data.shop)
         end
     end
 end
