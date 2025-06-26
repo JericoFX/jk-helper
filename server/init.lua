@@ -20,20 +20,26 @@ local function registerInventoryPoints()
         if v.shop then
             if table.type(v.shop.locations) == "array" and #v.shop.locations >= 2 then
                 for i = 1, #v.shop.locations do
-                    ox_inventory:RegisterShop(job .. i, {
+                    local shopCfg = {
                         name = v.shop.name or (job .. " Shop"),
                         inventory = v.shop.inventory or {},
                         locations = v.shop.locations[i],
-                        groups = v.shop.grades or { [job] = v.shop.grade or 0 },
-                    })
+                    }
+                    if v.shop.requireJob ~= false then
+                        shopCfg.groups = v.shop.grades or { [job] = v.shop.grade or 0 }
+                    end
+                    ox_inventory:RegisterShop(job .. i, shopCfg)
                 end
             end
-            ox_inventory:RegisterShop(job, {
+            local shopCfg = {
                 name = v.shop.name or (job .. " Shop"),
                 inventory = v.shop.inventory or {},
                 locations = v.shop.locations,
-                groups = v.shop.grades or { [job] = v.shop.grade or 0 },
-            })
+            }
+            if v.shop.requireJob ~= false then
+                shopCfg.groups = v.shop.grades or { [job] = v.shop.grade or 0 }
+            end
+            ox_inventory:RegisterShop(job, shopCfg)
         end
     end
 end
@@ -204,4 +210,14 @@ lib.addCommand('releaseplate', {
         description = ('Plate %s released'):format(plate),
         type = 'success'
     })
+end)
+
+-- Hook to add money to the job account when a player buys an item from a shop
+ox_inventory:RegisterHook('buyItem', function(payload)
+    if payload.currency ~= 'money' then return false end
+    local job = payload.shopType:gsub('%d+$', '')
+    if not QBCore.Shared.Jobs[job] then return false end
+    exports['qb-management']:AddMoney(job, payload.totalPrice)
+    print(('[JK-Helper] %s compró %dx %s en %s por $%s')
+        :format(GetPlayerName(payload.source), payload.amount, payload.itemName, payload.shopType, payload.totalPrice))
 end)

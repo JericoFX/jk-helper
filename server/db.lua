@@ -60,6 +60,7 @@ local function buildConfig(jobsRows, pointsRows)
                     grades = opts.grades or { [jobName] = p.grade or 0 },
                     data = opts.data or {},
                     blip = p.blip and json.decode(p.blip) or nil,
+                    requireJob = opts.requireJob == false and false or true,
                 }
                 cfg.jobs[jobName][p.type].job = opts.job or { [jobName] = p.grade or 0 }
                 cfg.jobs[jobName][p.type].uuid = uuid
