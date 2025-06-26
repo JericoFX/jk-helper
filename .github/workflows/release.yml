@@ -1,0 +1,48 @@
+name: Release Resource
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # allows creating releases
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Extract version from fxmanifest.lua
+        id: get_version
+        shell: bash
+        run: |
+          version=$(grep -Eo '^version[[:space:]]+"?[0-9]+\.[0-9]+\.[0-9]+"?' fxmanifest.lua | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create ZIP package
+        shell: bash
+        run: |
+          zip -qr "resource-${{ steps.get_version.outputs.version }}.zip" . -x "*.git*" ".github/*"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: 'v${{ steps.get_version.outputs.version }}'
+          release_name: 'v${{ steps.get_version.outputs.version }}'
+          draft: false
+          prerelease: false
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: 'resource-${{ steps.get_version.outputs.version }}.zip'
+          asset_name: 'resource-${{ steps.get_version.outputs.version }}.zip'
+          asset_content_type: application/zip
