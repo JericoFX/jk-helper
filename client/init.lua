@@ -31,7 +31,7 @@ local function CreateBlip(blipConfig)
 end
 
 local function onEnter(self)
-    if self.data.job ~= Player.job.name then return end
+    if self.data.requireJob ~= false and self.data.job ~= Player.job.name then return end
     if self.data.grade and Player.job.grade.level < self.data.grade then return end
     lib.showTextUI(("[E] Open %s"):format(self.data.type):upper())
 end
@@ -41,7 +41,7 @@ local function onExit(self)
 end
 
 local function inside(self)
-    if self.data.job ~= Player.job.name then return end
+    if self.data.requireJob ~= false and self.data.job ~= Player.job.name then return end
     if self.data.grade and Player.job.grade.level < self.data.grade then return end
     local typeZone = self.data.type
 
@@ -80,9 +80,8 @@ local function createZones()
                 garage = {},
                 boss = {},
                 cloth = {},
-               
-            }
 
+            }
         end
         if el.stash then
             if not Points[k].stash or not Points[k].stash.zone then
@@ -93,7 +92,7 @@ local function createZones()
                 els = nil
             end
             if el.stash.blip then
-                Blips[#Blips+1] = CreateBlip(el.stash.blip)
+                Blips[#Blips + 1] = CreateBlip(el.stash.blip)
             end
         end
         if el.privateStash then
@@ -106,7 +105,7 @@ local function createZones()
                 els = nil
             end
             if el.privateStash.blip then
-                Blips[#Blips+1] = CreateBlip(el.privateStash.blip)
+                Blips[#Blips + 1] = CreateBlip(el.privateStash.blip)
             end
         end
         if el.duty then
@@ -118,7 +117,7 @@ local function createZones()
                 els = nil
             end
             if el.duty.blip then
-                Blips[#Blips+1] = CreateBlip(el.duty.blip)
+                Blips[#Blips + 1] = CreateBlip(el.duty.blip)
             end
         end
         if el.boss then
@@ -130,7 +129,7 @@ local function createZones()
                 els = nil
             end
             if el.boss.blip then
-                Blips[#Blips+1] = CreateBlip(el.boss.blip)
+                Blips[#Blips + 1] = CreateBlip(el.boss.blip)
             end
         end
         if el.shop then
@@ -139,17 +138,19 @@ local function createZones()
                 if table.type(v.shop.locations) == "array" and #v.shop.locations >= 2 then
                     for i = 1, #v.shop.locations do
                         Points[k].shop = Zones:new(k, "shop", els.locations[i],
-                            { type = "shop", label = els.label, job = k, id = i }, onEnter, onExit, inside)
+                            { type = "shop", label = els.label, job = k, id = i, requireJob = els.requireJob }, onEnter,
+                            onExit, inside)
                         Points[k].shop:Create()
                     end
                 end
-                Points[k].shop = Zones:new(k, "shop", els.locations[1], { type = "shop", label = els.label, job = k, id = 1 },
+                Points[k].shop = Zones:new(k, "shop", els.locations[1],
+                    { type = "shop", label = els.label, job = k, id = 1, requireJob = els.requireJob },
                     onEnter, onExit, inside)
                 Points[k].shop:Create()
                 els = nil
             end
             if el.shop.blip then
-                Blips[#Blips+1] = CreateBlip(el.shop.blip)
+                Blips[#Blips + 1] = CreateBlip(el.shop.blip)
             end
         end
         if el.garage then
@@ -166,19 +167,20 @@ local function createZones()
                 els = nil
             end
             if el.garage.blip then
-                Blips[#Blips+1] = CreateBlip(el.garage.blip)
+                Blips[#Blips + 1] = CreateBlip(el.garage.blip)
             end
         end
         if el.cloth then
             if not Points[k].cloth or not Points[k].cloth.zone then
                 local els = lib.table.deepclone(el.cloth)
-                Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event,job = k},
+                Points[k].cloth = Zones:new(k, "cloth", els.coords,
+                    { type = "cloth", label = "Cloth", data = els.event, job = k },
                     onEnter, onExit, inside)
                 Points[k].cloth:Create()
                 els = nil
             end
             if el.cloth.blip then
-                Blips[#Blips+1] = CreateBlip(el.cloth.blip)
+                Blips[#Blips + 1] = CreateBlip(el.cloth.blip)
             end
         end
     end
@@ -226,7 +228,7 @@ RegisterNetEvent("jk-helper:client:setConfig", function(cfg)
     updatePoints(cfg)
 end)
 
-AddEventHandler("onResourceStop",function(res) 
+AddEventHandler("onResourceStop", function(res)
     if cache.resource == res then
         for i = 1, #Blips do
             RemoveBlip(Blips[i])
