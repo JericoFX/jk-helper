@@ -3,7 +3,7 @@ fx_version 'cerulean'
 game "gta5"
 description "JK Helper"
 
-version "0.0.4"
+version "0.0.5"
 
 client_scripts { "client/admin.lua", "client/init.lua" }
 
