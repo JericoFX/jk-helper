@@ -80,9 +80,8 @@ local function createZones()
                 garage = {},
                 boss = {},
                 cloth = {},
-               
-            }
 
+            }
         end
         if el.stash then
             if not Points[k].stash or not Points[k].stash.zone then
@@ -93,7 +92,7 @@ local function createZones()
                 els = nil
             end
             if el.stash.blip then
-                Blips[#Blips+1] = CreateBlip(el.stash.blip)
+                Blips[#Blips + 1] = CreateBlip(el.stash.blip)
             end
         end
         if el.privateStash then
@@ -106,7 +105,7 @@ local function createZones()
                 els = nil
             end
             if el.privateStash.blip then
-                Blips[#Blips+1] = CreateBlip(el.privateStash.blip)
+                Blips[#Blips + 1] = CreateBlip(el.privateStash.blip)
             end
         end
         if el.duty then
@@ -118,7 +117,7 @@ local function createZones()
                 els = nil
             end
             if el.duty.blip then
-                Blips[#Blips+1] = CreateBlip(el.duty.blip)
+                Blips[#Blips + 1] = CreateBlip(el.duty.blip)
             end
         end
         if el.boss then
@@ -130,7 +129,7 @@ local function createZones()
                 els = nil
             end
             if el.boss.blip then
-                Blips[#Blips+1] = CreateBlip(el.boss.blip)
+                Blips[#Blips + 1] = CreateBlip(el.boss.blip)
             end
         end
         if el.shop then
@@ -143,13 +142,14 @@ local function createZones()
                         Points[k].shop:Create()
                     end
                 end
-                Points[k].shop = Zones:new(k, "shop", els.locations[1], { type = "shop", label = els.label, job = k, id = 1 },
+                Points[k].shop = Zones:new(k, "shop", els.locations[1],
+                    { type = "shop", label = els.label, job = k, id = 1 },
                     onEnter, onExit, inside)
                 Points[k].shop:Create()
                 els = nil
             end
             if el.shop.blip then
-                Blips[#Blips+1] = CreateBlip(el.shop.blip)
+                Blips[#Blips + 1] = CreateBlip(el.shop.blip)
             end
         end
         if el.garage then
@@ -166,19 +166,20 @@ local function createZones()
                 els = nil
             end
             if el.garage.blip then
-                Blips[#Blips+1] = CreateBlip(el.garage.blip)
+                Blips[#Blips + 1] = CreateBlip(el.garage.blip)
             end
         end
         if el.cloth then
             if not Points[k].cloth or not Points[k].cloth.zone then
                 local els = lib.table.deepclone(el.cloth)
-                Points[k].cloth = Zones:new(k, "cloth", els.coords, { type = "cloth", label = "Cloth",data = els.event,job = k},
+                Points[k].cloth = Zones:new(k, "cloth", els.coords,
+                    { type = "cloth", label = "Cloth", data = els.event, job = k },
                     onEnter, onExit, inside)
                 Points[k].cloth:Create()
                 els = nil
             end
             if el.cloth.blip then
-                Blips[#Blips+1] = CreateBlip(el.cloth.blip)
+                Blips[#Blips + 1] = CreateBlip(el.cloth.blip)
             end
         end
     end
@@ -226,7 +227,7 @@ RegisterNetEvent("jk-helper:client:setConfig", function(cfg)
     updatePoints(cfg)
 end)
 
-AddEventHandler("onResourceStop",function(res) 
+AddEventHandler("onResourceStop", function(res)
     if cache.resource == res then
         for i = 1, #Blips do
             RemoveBlip(Blips[i])
@@ -237,4 +238,55 @@ end)
 -- Request config on start
 lib.callback('jk-helper:server:getConfig', false, function(cfg)
     TriggerEvent('jk-helper:client:setConfig', cfg)
+end)
+
+-- Delta handlers to update points without full reload
+RegisterNetEvent('jk-helper:client:addPoint', function(p)
+    local jName = p.jobName or p.job -- compatibility
+    local tName = p.typeName or p.type
+    if not jName or not tName then return end
+    Config.jobs = Config.jobs or {}
+    Config.jobs[jName] = Config.jobs[jName] or {}
+    Config.jobs[jName][tName] = p
+    Points[jName] = Points[jName] or {}
+    if Points[jName][tName] and Points[jName][tName].delete then
+        Points[jName][tName]:delete()
+        Points[jName][tName] = nil
+    end
+    createZones()
+end)
+
+RegisterNetEvent('jk-helper:client:updatePoint', function(p)
+    local jName = p.jobName or p.job
+    local tName = p.typeName or p.type
+    if not jName or not tName then return end
+    Config.jobs = Config.jobs or {}
+    Config.jobs[jName] = Config.jobs[jName] or {}
+    Config.jobs[jName][tName] = p
+    Points[jName] = Points[jName] or {}
+    if Points[jName][tName] and Points[jName][tName].delete then
+        Points[jName][tName]:delete()
+        Points[jName][tName] = nil
+    end
+    createZones()
+end)
+
+RegisterNetEvent('jk-helper:client:deletePoint', function(uuid)
+    if not uuid then return end
+    for job, data in pairs(Config.jobs) do
+        for typeName, pointCfg in pairs(data) do
+            if pointCfg.uuid == uuid then
+                -- remove zone
+                if Points[job] and Points[job][typeName] and Points[job][typeName].delete then
+                    Points[job][typeName]:delete()
+                    Points[job][typeName] = nil
+                end
+                Config.jobs[job][typeName] = nil
+                if next(Config.jobs[job]) == nil then
+                    Config.jobs[job] = nil
+                end
+                break
+            end
+        end
+    end
 end)

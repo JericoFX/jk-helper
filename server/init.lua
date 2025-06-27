@@ -98,27 +98,88 @@ lib.callback.register("jk-helper:server:getAllPoints", function(src)
     return DB.getAllPoints()
 end)
 
---- Event: add point
+-- Delta push helpers
+local function pushPointAdd(pointCfg)
+    if not pointCfg then return end
+    TriggerClientEvent("jk-helper:client:addPoint", -1, pointCfg)
+end
+
+local function pushPointUpdate(pointCfg)
+    if not pointCfg then return end
+    TriggerClientEvent("jk-helper:client:updatePoint", -1, pointCfg)
+end
+
+local function pushPointDelete(uuid)
+    if not uuid then return end
+    TriggerClientEvent("jk-helper:client:deletePoint", -1, uuid)
+end
+
+-- REPLACED: addPoint handler to use delta sync
 RegisterNetEvent("jk-helper:server:addPoint", function(data)
     local src = source
     if not DB.isAdmin(src) then return end
-    DB.addPoint(data)
-    loadAndSync()
+    local uuid = DB.addPoint(data)
+    if not uuid then return end
+
+    -- update server-side memory Config
+    local pointCfg, jobName, pointType = DB.getPointConfig(uuid)
+    if not pointCfg then return end
+    Config.jobs[data.job] = Config.jobs[data.job] or {}
+    Config.jobs[data.job][data.type] = pointCfg
+
+    -- register inventory resources if needed
+    if data.type == "stash" then
+        registerJobStash(data.job, pointCfg, false)
+    elseif data.type == "privateStash" then
+        registerJobStash(data.job, pointCfg, true)
+    elseif data.type == "shop" then
+        registerJobShop(data.job, pointCfg)
+    end
+
+    -- Attach job/type for clients
+    pointCfg.jobName = jobName
+    pointCfg.typeName = pointType
+    pushPointAdd(pointCfg)
 end)
 
--- Future TODO: update & delete events
-RegisterNetEvent("jk-helper:server:deletePoint", function(id)
+-- REPLACED: updatePoint handler
+RegisterNetEvent("jk-helper:server:updatePoint", function(uuid, fields)
     local src = source
     if not DB.isAdmin(src) then return end
-    DB.deletePoint(id)
-    loadAndSync()
+    if not uuid then return end
+    DB.updatePoint(uuid, fields)
+    local pointCfg, jobName, pointType = DB.getPointConfig(uuid)
+    if not pointCfg or not jobName or not pointType then return end
+    Config.jobs[jobName] = Config.jobs[jobName] or {}
+    Config.jobs[jobName][pointType] = pointCfg
+    -- For stash/shop updates that affect ox_inventory, re-register
+    if pointType == "stash" then
+        registerJobStash(jobName, pointCfg, false)
+    elseif pointType == "privateStash" then
+        registerJobStash(jobName, pointCfg, true)
+    elseif pointType == "shop" then
+        registerJobShop(jobName, pointCfg)
+    end
+    pointCfg.jobName = jobName
+    pointCfg.typeName = pointType
+    pushPointUpdate(pointCfg)
 end)
 
-RegisterNetEvent("jk-helper:server:updatePoint", function(id, fields)
+-- REPLACED: deletePoint handler
+RegisterNetEvent("jk-helper:server:deletePoint", function(uuid)
     local src = source
     if not DB.isAdmin(src) then return end
-    DB.updatePoint(id, fields)
-    loadAndSync()
+    if not uuid then return end
+    -- fetch point info before delete to clean Config
+    local pointCfg, jobName, pointType = DB.getPointConfig(uuid)
+    DB.deletePoint(uuid)
+    if pointCfg and jobName and Config.jobs[jobName] then
+        Config.jobs[jobName][pointType] = nil
+        if next(Config.jobs[jobName]) == nil then
+            Config.jobs[jobName] = nil
+        end
+    end
+    pushPointDelete(uuid)
 end)
 
 -- When a player joins request sync

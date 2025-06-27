@@ -30,7 +30,8 @@ function DB.ensureSchema()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;]])
 
     -- ensure uuid column exists for legacy installations
-    MySQL.query([[ALTER TABLE `jk_job_points` ADD COLUMN IF NOT EXISTS `uuid` CHAR(36) NOT NULL UNIQUE DEFAULT (UUID())]])
+    MySQL.query(
+    [[ALTER TABLE `jk_job_points` ADD COLUMN IF NOT EXISTS `uuid` CHAR(36) NOT NULL UNIQUE DEFAULT (UUID())]])
 end
 
 --- Convert SQL rows to in-memory config structure resembling old static Config
@@ -50,7 +51,9 @@ local function buildConfig(jobsRows, pointsRows)
         end
         if jobName then
             local uuid = p.uuid -- keep reference for admin operations
-            local coordsVec = (function(c) local t=json.decode(c); return vector3(t.x, t.y, t.z) end)(p.coords)
+            local coordsVec = (function(c)
+                local t = json.decode(c); return vector3(t.x, t.y, t.z)
+            end)(p.coords)
             if p.type == 'shop' then
                 local opts = p.options and json.decode(p.options) or {}
                 cfg.jobs[jobName][p.type] = {
@@ -68,9 +71,15 @@ local function buildConfig(jobsRows, pointsRows)
                 local opts = p.options and json.decode(p.options) or {}
                 cfg.jobs[jobName][p.type] = {
                     coords = coordsVec,
-                    returnCoords = opts.returnCoords and vector3(opts.returnCoords.x, opts.returnCoords.y, opts.returnCoords.z) or vector3(coordsVec.x, coordsVec.y + 2.0, coordsVec.z),
-                    deleteCoords = opts.deleteCoords and vector3(opts.deleteCoords.x, opts.deleteCoords.y, opts.deleteCoords.z) or vector3(coordsVec.x, coordsVec.y + 4.0, coordsVec.z),
-                    spawnCoords = opts.spawnCoords and vector4(opts.spawnCoords.x, opts.spawnCoords.y, opts.spawnCoords.z, opts.spawnCoords.w or 0.0) or vector4(coordsVec.x, coordsVec.y, coordsVec.z, 0.0),
+                    returnCoords = opts.returnCoords and
+                    vector3(opts.returnCoords.x, opts.returnCoords.y, opts.returnCoords.z) or
+                    vector3(coordsVec.x, coordsVec.y + 2.0, coordsVec.z),
+                    deleteCoords = opts.deleteCoords and
+                    vector3(opts.deleteCoords.x, opts.deleteCoords.y, opts.deleteCoords.z) or
+                    vector3(coordsVec.x, coordsVec.y + 4.0, coordsVec.z),
+                    spawnCoords = opts.spawnCoords and
+                    vector4(opts.spawnCoords.x, opts.spawnCoords.y, opts.spawnCoords.z, opts.spawnCoords.w or 0.0) or
+                    vector4(coordsVec.x, coordsVec.y, coordsVec.z, 0.0),
                     options = opts.options or {},
                     title = p.label or (jobName .. ' Garage'),
                     livery = opts.livery or false,
@@ -116,16 +125,21 @@ end
 --- Public: add point (data table fields: job, type, coords, label, grade, options, blip, data)
 function DB.addPoint(data)
     local jobId = getOrCreateJobId(data.job)
-    MySQL.query.await('INSERT INTO jk_job_points(job_id, type, coords, label, grade, options, blip, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
-        jobId,
-        data.type,
-        json.encode(data.coords),
-        data.label or nil,
-        data.grade or 0,
-        data.options and json.encode(data.options) or nil,
-        data.blip and json.encode(data.blip) or nil,
-        data.data and json.encode(data.data) or nil,
-    })
+    local result = MySQL.query.await(
+    'INSERT INTO jk_job_points(job_id, type, coords, label, grade, options, blip, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        {
+            jobId,
+            data.type,
+            json.encode(data.coords),
+            data.label or nil,
+            data.grade or 0,
+            data.options and json.encode(data.options) or nil,
+            data.blip and json.encode(data.blip) or nil,
+            data.data and json.encode(data.data) or nil,
+        })
+    if not result or not result.insertId then return nil end
+    local row = MySQL.query.await('SELECT uuid FROM jk_job_points WHERE id = ?', { result.insertId })
+    return row and row[1] and row[1].uuid or nil
 end
 
 --- Public: delete point by uuid
@@ -157,7 +171,9 @@ end
 
 --- Public: return all points with job name for admin menus
 function DB.getAllPoints()
-    local rows = MySQL.query.await([[SELECT p.uuid, j.name as job, p.type, p.label, p.grade, p.coords FROM jk_job_points p INNER JOIN jk_jobs j ON j.id = p.job_id]]) or {}
+    local rows = MySQL.query.await(
+    [[SELECT p.uuid, j.name as job, p.type, p.label, p.grade, p.coords FROM jk_job_points p INNER JOIN jk_jobs j ON j.id = p.job_id]]) or
+    {}
     -- Convert coords JSON to table for client convenience
     for _, r in ipairs(rows) do
         r.coords = json.decode(r.coords)
@@ -165,4 +181,17 @@ function DB.getAllPoints()
     return rows
 end
 
-return DB 
+--- Return point config (single) formatted like buildConfig output for that job/type
+function DB.getPointConfig(uuid)
+    if not uuid then return nil end
+    local rows = MySQL.query.await([[SELECT p.*, j.name as job FROM jk_job_points p
+                                      INNER JOIN jk_jobs j ON j.id = p.job_id WHERE p.uuid = ?]], { uuid }) or {}
+    if not rows[1] then return nil end
+    local row = rows[1]
+    local jobsRows = { { id = row.job_id, name = row.job } }
+    local cfg = buildConfig(jobsRows, { row })
+    local point = cfg.jobs[row.job] and cfg.jobs[row.job][row.type]
+    return point, row.job, row.type
+end
+
+return DB
