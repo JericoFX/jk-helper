@@ -7,7 +7,7 @@ Job Menu Creator
 
 # Here you can Modify and create:
 
-    Boss Menu 
+    Boss Menu
     Stash to store items (Shared) – configure slots & max weight per stash
     Cloth Coords (vector3)
     Blip Creator
@@ -38,13 +38,13 @@ Example: Short one, whitout a lot of stuff
 ### Admin tools
 
 • Command **/jkcreatepoint** (default key **F7**) opens a simple ox_lib dialog.
-  – First, look at the ground where you want the point and press **E**. A cyan marker shows the hit position in real-time.
-  – After selecting the position, a dialog asks for:
-    • Job name
-    • Point type (stash, privateStash, duty, shop, garage, boss, cloth)
-    • Minimum grade allowed (defaults to 0)
-    • Label
-    • Blip sprite & color (sprite 0 = no blip)
+– First, look at the ground where you want the point and press **E**. A cyan marker shows the hit position in real-time.
+– After selecting the position, a dialog asks for:
+• Job name
+• Point type (stash, privateStash, duty, shop, garage, boss, cloth)
+• Minimum grade allowed (defaults to 0)
+• Label
+• Blip sprite & color (sprite 0 = no blip)
 • After confirmation the point is stored in the database and instantly synced to all players.
 
 Future versions will include point editing & deletion from the same interface.
@@ -54,31 +54,38 @@ Future versions will include point editing & deletion from the same interface.
 • Command **/jkmanagepoints** (key **F9**) open the menu with all points created.
 
 ### Stash & Private Stash
-• When adding a point choose *Slots* and *Max Weight*
+
+• When adding a point choose _Slots_ and _Max Weight_
 
 ### Garage
+
 • When creating a garage, you'll be prompted to select 4 different points:
-  1. **Main Menu Position**: Where players open the vehicle selection menu
-  2. **Spawn Point**: Where vehicles appear when selected from menu  
-  3. **Return Point**: Where players go to save/store their vehicles
-  4. **Police Menu Point**: Additional point for police-specific interactions
-• For each vehicle, specify the label, model/hash, and optional livery.
-• **Security Features**:
-  - Job validation: Only players with the correct job can access garage functions
-  - Grade validation: Minimum grade requirements are enforced
-  - Server-side validation: Double-check on server for all garage operations
-  - Plate tracking: Server tracks vehicle ownership and validates returns
-  - CPU optimization: Text prompts only show for authorized players
-• If something goes wrong, admins can run **/releaseplate JK123456** to manually free a plate.
+
+1. **Main Menu Position**: Where players open the vehicle selection menu
+2. **Spawn Point**: Where vehicles appear when selected from menu
+3. **Return Point**: Where players go to save/store their vehicles
+4. **Police Menu Point**: Additional point for police-specific interactions
+   • For each vehicle, specify the label, model/hash, and optional livery.
+   • **Security Features**:
+
+- Job validation: Only players with the correct job can access garage functions
+- Grade validation: Minimum grade requirements are enforced
+- Server-side validation: Double-check on server for all garage operations
+- Plate tracking: Server tracks vehicle ownership and validates returns
+- CPU optimization: Text prompts only show for authorized players
+  • If something goes wrong, admins can run **/releaseplate JK123456** to manually free a plate.
 
 ### Shop
+
 • Add items one by one with three fields per item:
-  - **Item Name**: The item identifier (must exist in ox_inventory)
-  - **Amount**: Quantity available (0 = unlimited stock)  
-  - **Price**: Cost per item (0 = free item)
-• Items with amount or price set to 0 will ignore those constraints.
+
+- **Item Name**: The item identifier (must exist in ox_inventory)
+- **Amount**: Quantity available (0 = unlimited stock)
+- **Price**: Cost per item (0 = free item)
+  • Items with amount or price set to 0 will ignore those constraints.
 
 ### Vehicle Helper Functions
+
 • **Vehicle.setExtras(vehicle, extras)**: Set vehicle extras/livery client-side
 • **Vehicle.setExtrasSecure(vehicle, extras)**: Set vehicle extras with server validation
 • **Vehicle.spawn(model, coords, job, grade, callback)**: Server-side vehicle spawning with validation
@@ -90,4 +97,17 @@ Future versions will include point editing & deletion from the same interface.
 • Server-side spawning provides better control, security, and networking
 
 ### Raycast Point Placement
+
 Points are now placed where the camera crosshair hits the ground (10 m range). If the raycast fails it falls back to the player's current position.
+
+• Marker drawing is now managed with ox_lib's `lib.points`, removing the previous client thread and registering each marker through `RegisterMarker(coords)` for better performance.
+
+## v0.2.0 – Point Manager Refactor
+
+The client now loads a dedicated **point_manager** module that handles:
+
+1. Zone and blip creation/removal
+2. Unified access checks (`requireJob`, job name, grade)
+3. Delta updates (add / update / delete) without full reload
+
+No configuration changes are required; existing server events continue working. The old logic inside `client/init.lua` is now a thin wrapper that delegates to the manager.
