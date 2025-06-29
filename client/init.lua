@@ -44,7 +44,6 @@ local function inside(self)
     if self.data.requireJob ~= false and self.data.job ~= Player.job.name then return end
     if self.data.grade and Player.job.grade.level < self.data.grade then return end
     local typeZone = self.data.type
-
     local PlayerCoords = GetEntityCoords(cache.ped)
     local currentDistance = #(self.coords - PlayerCoords)
     DrawMarker(2, self.coords.x, self.coords.y, self.coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,

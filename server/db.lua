@@ -52,7 +52,14 @@ local function buildConfig(jobsRows, pointsRows)
             local uuid = p.uuid -- keep reference for admin operations
             local coordsVec = (function(c) local t=json.decode(c); return vector3(t.x, t.y, t.z) end)(p.coords)
             if p.type == 'shop' then
+              
                 local opts = p.options and json.decode(p.options) or {}
+               if opts.requireJob == false or opts.requireJob == "false" or opts.requireJob == 0 then
+                opts.requireJob = false
+               else
+                opts.requireJob = true
+               end
+
                 cfg.jobs[jobName][p.type] = {
                     name = p.label or (jobName .. ' Shop'),
                     inventory = opts.inventory or {},
@@ -60,7 +67,7 @@ local function buildConfig(jobsRows, pointsRows)
                     grades = opts.grades or { [jobName] = p.grade or 0 },
                     data = opts.data or {},
                     blip = p.blip and json.decode(p.blip) or nil,
-                    requireJob = opts.requireJob == false and false or true,
+                    requireJob = opts.requireJob
                 }
                 cfg.jobs[jobName][p.type].job = opts.job or { [jobName] = p.grade or 0 }
                 cfg.jobs[jobName][p.type].uuid = uuid

@@ -1,7 +1,9 @@
 local QBCore = exports["qb-core"]:GetCoreObject()
 local ox_inventory = exports.ox_inventory
 local DB = lib.load("server.db")
-
+local Medias = {
+    management = false
+}
 local Config = {}
 
 --- helper to register points in ox_inventory once Config is loaded
@@ -17,11 +19,21 @@ local function registerJobStash(job, opts, isPrivate)
         opts.job or { [job] = opts.grade or 0 }
     )
 end
-
+    
 local function registerJobShop(job, shop)
-    local requireJob = shop.requireJob ~= false
+    local requireJob = not (shop.requireJob == false or shop.requireJob == 0)
     local baseName = shop.name or (job .. " Shop")
-    local inventory = shop.inventory or {}
+    local inventory = {}
+    if shop.inventory then
+        for i, item in ipairs(shop.inventory) do
+            inventory[i] = {
+                name = item.name,
+                amount = item.amount,
+                price = tonumber(item.price) or 0,
+                grade = item.grade
+            }
+        end
+    end
 
     if table.type(shop.locations) == "array" and #shop.locations >= 2 then
         for i = 1, #shop.locations do
@@ -231,7 +243,8 @@ lib.addCommand('releaseplate', {
 end)
 
 -- Hook to add money to the job account when a player buys an item from a shop
-ox_inventory:RegisterHook('buyItem', function(payload)
+ox_inventory:registerHook('buyItem', function(payload)
+    if not Medias.management then return end
     if payload.currency ~= 'money' then return false end
     local job = payload.shopType:gsub('%d+$', '')
     if not QBCore.Shared.Jobs[job] then return false end

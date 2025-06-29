@@ -53,8 +53,12 @@ local function openCreatePointDialog()
         local jobName, pType, grade, label, blipSprite, blipColor = table.unpack(input)
         if not jobName or jobName == '' then return end
         if not QBCore.Shared.Jobs or not QBCore.Shared.Jobs[jobName] then
-            lib.notify({ title = 'Create Point', description = ('Job "%s" does not exist'):format(jobName), type =
-            'error' })
+            lib.notify({
+                title = 'Create Point',
+                description = ('Job "%s" does not exist'):format(jobName),
+                type =
+                'error'
+            })
             return
         end
 
@@ -74,7 +78,7 @@ local function openCreatePointDialog()
             })
             if not shopOpts then return end
             local requireJob = shopOpts[1] and true or false
-
+            
             local inventory = {}
             while true do
                 local itm = lib.inputDialog('Add Item to Shop', {
@@ -95,7 +99,7 @@ local function openCreatePointDialog()
                 else
                     local itemData = { name = name }
                     if amount > 0 then itemData.amount = amount end
-                    if price > 0 then itemData.price = price end
+                    itemData.price = price
                     inventory[#inventory + 1] = itemData
                 end
                 local again = lib.alertDialog({ header = 'Shop', content = 'Add another item?', centered = true, cancel = true })
@@ -119,8 +123,12 @@ local function openCreatePointDialog()
                 if not IsModelInCdimage(vModel) then
                     lib.notify({ title = 'Garage', description = ('Model "%s" not found'):format(vModel), type = 'error' })
                 elseif not QBCore.Shared.Vehicles[vModel] then
-                    lib.notify({ title = 'Garage', description = ('Vehicle "%s" is not registered in shared'):format(
-                    vModel), type = 'error' })
+                    lib.notify({
+                        title = 'Garage',
+                        description = ('Vehicle "%s" is not registered in shared'):format(
+                            vModel),
+                        type = 'error'
+                    })
                 else
                     vehicleOptions[#vehicleOptions + 1] = { label = vLabel ~= '' and vLabel or vModel, args = { hash = vModel } }
                     if tonumber(vLivery) and tonumber(vLivery) >= 0 then liveryMap[vModel] = tonumber(vLivery) end
@@ -211,7 +219,7 @@ local function openManagePointsMenu()
                         },
                     }
                     lib.registerMenu(
-                    { id = 'jk_manage_point_actions', title = 'Point ' .. point.uuid:sub(1, 8), options = subOpts },
+                        { id = 'jk_manage_point_actions', title = 'Point ' .. point.uuid:sub(1, 8), options = subOpts },
                         function(_, _, actionArgs)
                             if actionArgs.action == 'edit' then
                                 local editInput = lib.inputDialog('Edit Point ' .. point.uuid:sub(1, 8), {
@@ -230,8 +238,13 @@ local function openManagePointsMenu()
                                     lib.notify({ title = 'JK Helper', description = 'Point updated', type = 'success' })
                                 end
                             elseif actionArgs.action == 'delete' then
-                                local confirm = lib.alertDialog({ header = 'Delete', content = 'Delete point ' ..
-                                point.uuid:sub(1, 8) .. '?', centered = true, cancel = true })
+                                local confirm = lib.alertDialog({
+                                    header = 'Delete',
+                                    content = 'Delete point ' ..
+                                        point.uuid:sub(1, 8) .. '?',
+                                    centered = true,
+                                    cancel = true
+                                })
                                 if confirm == 'confirm' then
                                     TriggerServerEvent('jk-helper:server:deletePoint', point.uuid)
                                     lib.notify({ title = 'JK Helper', description = 'Point deleted', type = 'success' })
