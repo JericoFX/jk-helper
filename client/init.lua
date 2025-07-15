@@ -79,6 +79,7 @@ local function createZones()
                 garage = {},
                 boss = {},
                 cloth = {},
+                dj = {},
 
             }
         end
@@ -180,6 +181,19 @@ local function createZones()
             end
             if el.cloth.blip then
                 Blips[#Blips + 1] = CreateBlip(el.cloth.blip)
+            end
+        end
+        if el.dj then
+            if not Points[k].dj or not Points[k].dj.zone then
+                local els = lib.table.deepclone(el.dj)
+                Points[k].dj = Zones:new(k, "dj", els.coords,
+                    { type = "dj", label = "DJ Panel", job = k },
+                    onEnter, onExit, inside)
+                Points[k].dj:Create()
+                els = nil
+            end
+            if el.dj.blip then
+                Blips[#Blips + 1] = CreateBlip(el.dj.blip)
             end
         end
     end

@@ -41,6 +41,16 @@ function Zones:Open()
         ox:openInventory("shop", { type = self.name, id = self.data.id })
     elseif self.type == "cloth" then
         self.data.data()
+    elseif self.type == "dj" then
+        if GetResourceState('fx-djsound') == 'started' then
+            exports['fx-djsound']:openDjPanel()
+        else
+            lib.notify({
+                title = 'DJ Panel',
+                description = 'The resource fx-djsound is not available',
+                type = 'error'
+            })
+        end
     end
 end
 

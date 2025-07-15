@@ -8,6 +8,7 @@ local pointTypes = {
     { label = 'Garage',        value = 'garage' },
     { label = 'Boss',          value = 'boss' },
     { label = 'Cloth',         value = 'cloth' },
+    { label = 'DJ',            value = 'dj' },
 }
 
 -- Helper that lets the admin aim at the ground and press E to select the point location using a live raycast preview
@@ -60,6 +61,17 @@ local function openCreatePointDialog()
                 'error'
             })
             return
+        end
+        
+        if pType == 'dj' then
+            if GetResourceState('fx-djsound') ~= 'started' then
+                lib.notify({
+                    title = 'Create Point',
+                    description = 'The resource fx-djsound is not started. DJ points require this resource.',
+                    type = 'error'
+                })
+                return
+            end
         end
 
         local options = {}
