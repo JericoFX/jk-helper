@@ -61,4 +61,15 @@ function Zones:delete()
     self.zone = nil
 end
 
+function Zones:update(coords, data)
+    if coords then
+        self.coords = coords
+    end
+    if data then
+        self.data = data
+    end
+    self:delete()
+    self:Create()
+end
+
 return Zones

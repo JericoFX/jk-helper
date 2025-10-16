@@ -199,6 +199,149 @@ local function createZones()
     end
 end
 
+local function isVector(value)
+    local valueType = type(value)
+    return valueType == "vector3" or valueType == "vector4" or valueType == "vector2"
+end
+
+local function vectorEquals(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+    if not isVector(a) or not isVector(b) then return false end
+
+    local components = { "x", "y", "z" }
+    if type(a) == "vector4" or type(b) == "vector4" then
+        components[#components + 1] = "w"
+    end
+
+    for i = 1, #components do
+        local axis = components[i]
+        if not (a[axis] and b[axis]) then return false end
+        if math.abs(a[axis] - b[axis]) > 0.001 then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function deepEqual(a, b)
+    if a == b then return true end
+    if isVector(a) or isVector(b) then
+        return vectorEquals(a, b)
+    end
+    if type(a) ~= type(b) then return false end
+    if type(a) ~= "table" then
+        return a == b
+    end
+
+    local checked = {}
+    for key, value in pairs(a) do
+        if not deepEqual(value, b[key]) then
+            return false
+        end
+        checked[key] = true
+    end
+
+    for key in pairs(b) do
+        if not checked[key] then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function extractComparableData(pointType, data)
+    if not data then return nil end
+
+    local sanitized = {}
+
+    if pointType == "garage" then
+        sanitized.coords = data.coords
+        sanitized.returnCoords = data.returnCoords
+        sanitized.spawnCoords = data.spawnCoords
+        sanitized.deleteCoords = data.deleteCoords
+        sanitized.title = data.title
+        sanitized.livery = data.livery
+        sanitized.grade = data.grade
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+        sanitized.options = data.options
+        sanitized.job = data.job
+    elseif pointType == "shop" then
+        sanitized.locations = data.locations
+        sanitized.label = data.label or data.name
+        sanitized.name = data.name
+        sanitized.inventory = data.inventory
+        sanitized.requireJob = data.requireJob
+        sanitized.grades = data.grades
+        sanitized.job = data.job
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+        sanitized.options = data.options
+    else
+        sanitized.coords = data.coords
+        sanitized.label = data.label
+        sanitized.grade = data.grade
+        sanitized.slots = data.slots
+        sanitized.weight = data.weight
+        sanitized.job = data.job
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+    end
+
+    return sanitized
+end
+
+local function hasRelevantChanges(pointType, oldPoint, newPoint)
+    if not oldPoint and newPoint then return true end
+    if not newPoint and oldPoint then return true end
+    if not oldPoint and not newPoint then return false end
+
+    local oldComparable = extractComparableData(pointType, oldPoint)
+    local newComparable = extractComparableData(pointType, newPoint)
+
+    if not oldComparable and newComparable then return true end
+    if not newComparable and oldComparable then return true end
+
+    if pointType == "garage" then
+        if not vectorEquals(oldComparable.coords, newComparable.coords) then return true end
+        if not vectorEquals(oldComparable.returnCoords, newComparable.returnCoords) then return true end
+        if not vectorEquals(oldComparable.spawnCoords, newComparable.spawnCoords) then return true end
+        if (oldComparable.deleteCoords or newComparable.deleteCoords) and not vectorEquals(oldComparable.deleteCoords,
+            newComparable.deleteCoords) then return true end
+    elseif pointType == "shop" then
+        local oldLocations = oldComparable.locations or {}
+        local newLocations = newComparable.locations or {}
+        if #oldLocations ~= #newLocations then return true end
+        for i = 1, #oldLocations do
+            if not vectorEquals(oldLocations[i], newLocations[i]) then
+                return true
+            end
+        end
+    else
+        if not vectorEquals(oldComparable.coords, newComparable.coords) then return true end
+    end
+
+    if (oldComparable.label or oldComparable.name) ~= (newComparable.label or newComparable.name) then return true end
+    if (oldComparable.grade or 0) ~= (newComparable.grade or 0) then return true end
+
+    if not deepEqual(oldComparable.options, newComparable.options) then return true end
+    if not deepEqual(oldComparable.inventory, newComparable.inventory) then return true end
+    if not deepEqual(oldComparable.data, newComparable.data) then return true end
+    if not deepEqual(oldComparable.job, newComparable.job) then return true end
+    if not deepEqual(oldComparable.slots, newComparable.slots) then return true end
+    if not deepEqual(oldComparable.weight, newComparable.weight) then return true end
+    if pointType == "garage" then
+        if oldComparable.title ~= newComparable.title then return true end
+        if oldComparable.livery ~= newComparable.livery then return true end
+    elseif pointType == "shop" then
+        if oldComparable.requireJob ~= newComparable.requireJob then return true end
+        if not deepEqual(oldComparable.grades, newComparable.grades) then return true end
+        if oldComparable.name ~= newComparable.name then return true end
+    end
+
+    return false
+end
+
 local function updatePoints(newConfig)
     -- Clear all blips first and recreate them
     if #Blips > 0 then
@@ -208,27 +351,43 @@ local function updatePoints(newConfig)
         Blips = {}
     end
 
+    local oldConfig = Config or { jobs = {} }
+    newConfig.jobs = newConfig.jobs or {}
+
     -- Check existing points and remove those that no longer exist in new config
     for job, jobPoints in pairs(Points) do
         if not newConfig.jobs[job] then
-            -- Job completely removed, delete all its points
-            for pointType, point in pairs(jobPoints) do
+            for _, point in pairs(jobPoints) do
                 if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
                     point:delete()
                 end
             end
             Points[job] = nil
         else
-            -- Job still exists, check individual point types
             for pointType, point in pairs(jobPoints) do
                 if not newConfig.jobs[job][pointType] then
-                    -- This point type was removed for this job
                     if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
                         point:delete()
                     end
                     Points[job][pointType] = nil
+                else
+                    local oldPointConfig = oldConfig.jobs[job] and oldConfig.jobs[job][pointType]
+                    local newPointConfig = newConfig.jobs[job][pointType]
+                    if hasRelevantChanges(pointType, oldPointConfig, newPointConfig) then
+                        if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
+                            point:delete()
+                        end
+                        Points[job][pointType] = nil
+                    end
                 end
             end
+        end
+    end
+
+    -- Ensure points exist for new jobs that might not have been present before
+    for job in pairs(newConfig.jobs) do
+        if not Points[job] then
+            Points[job] = {}
         end
     end
 
