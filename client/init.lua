@@ -15,7 +15,10 @@ RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
 end)
 
 RegisterNetEvent('QBCore:Client:SetPlayerData', function(val)
-    Player.job = val
+    if type(val) == "table" then
+        Player = val
+        Player.job = val.job
+    end
 end)
 
 local function CreateBlip(blipConfig)
@@ -31,8 +34,16 @@ local function CreateBlip(blipConfig)
 end
 
 local function onEnter(self)
-    if self.data.requireJob ~= false and self.data.job ~= Player.job.name then return end
-    if self.data.grade and Player.job.grade.level < self.data.grade then return end
+    local job = Player.job
+    if type(job) ~= "table" then return end
+
+    local jobName = job.name
+    if self.data.requireJob ~= false and (jobName == nil or self.data.job ~= jobName) then return end
+
+    local grade = job.grade
+    local gradeLevel = type(grade) == "table" and grade.level or nil
+    if self.data.grade and (gradeLevel == nil or gradeLevel < self.data.grade) then return end
+
     lib.showTextUI(("[E] Open %s"):format(self.data.type):upper())
 end
 
@@ -41,8 +52,16 @@ local function onExit(self)
 end
 
 local function inside(self)
-    if self.data.requireJob ~= false and self.data.job ~= Player.job.name then return end
-    if self.data.grade and Player.job.grade.level < self.data.grade then return end
+    local job = Player.job
+    if type(job) ~= "table" then return end
+
+    local jobName = job.name
+    if self.data.requireJob ~= false and (jobName == nil or self.data.job ~= jobName) then return end
+
+    local grade = job.grade
+    local gradeLevel = type(grade) == "table" and grade.level or nil
+    if self.data.grade and (gradeLevel == nil or gradeLevel < self.data.grade) then return end
+
     local typeZone = self.data.type
     local PlayerCoords = GetEntityCoords(cache.ped)
     local currentDistance = #(self.coords - PlayerCoords)
