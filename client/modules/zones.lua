@@ -15,17 +15,39 @@ function Zones:constructor(name, zoneType, coords, data, onEnter, onExit, inside
 end
 
 function Zones:Create()
-    self.zone = lib.zones.box({
-        name = self.name,
+    local zoneName = ("%s:%s"):format(self.name, self.type)
+    if self.data and self.data.id then
+        zoneName = ("%s:%s:%s"):format(self.name, self.type, self.data.id)
+    end
+
+    local zoneConfig = {
+        name = zoneName,
         coords = self.coords,
         size = vec3(5, 5, 5),
         rotation = 0,
-        onEnter = self.onEnter,
         debug = false,
-        onExit = self.onExit,
-        inside = self.inside,
         data = self.data or {}
-    })
+    }
+
+    if self.onEnter then
+        zoneConfig.onEnter = function(...)
+            self.onEnter(self, ...)
+        end
+    end
+
+    if self.onExit then
+        zoneConfig.onExit = function(...)
+            self.onExit(self, ...)
+        end
+    end
+
+    if self.inside then
+        zoneConfig.inside = function(...)
+            self.inside(self, ...)
+        end
+    end
+
+    self.zone = lib.zones.box(zoneConfig)
 end
 
 function Zones:Open()
