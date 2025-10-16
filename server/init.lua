@@ -193,7 +193,23 @@ lib.callback.register('jk-helper:server:registerVehicle', function(src, plate, j
         print(('[jk-helper] WARNING: Player %s tried to register vehicle without proper garage access'):format(src))
         return false
     end
-    vehicleRegistry[plate] = { owner = src, time = os.time(), job = jobName }
+    local player = QBCore.Functions.GetPlayer(src)
+    local charName = nil
+    local citizenid = nil
+    if player and player.PlayerData and player.PlayerData.charinfo then
+        citizenid = player.PlayerData.citizenid
+        local charinfo = player.PlayerData.charinfo
+        if charinfo.firstname and charinfo.lastname then
+            charName = (charinfo.firstname .. ' ' .. charinfo.lastname)
+        end
+    end
+    vehicleRegistry[plate] = {
+        owner = src,
+        citizenid = citizenid,
+        ownerName = charName or GetPlayerName(src) or ('ID %s'):format(src),
+        time = os.time(),
+        job = jobName
+    }
     return true
 end)
 
@@ -214,6 +230,63 @@ AddEventHandler('playerDropped', function()
             vehicleRegistry[plate] = nil
         end
     end
+end)
+
+lib.callback.register('jk-helper:server:getVehicleRegistry', function(src)
+    if not DB.isAdmin(src) then return {} end
+    local list = {}
+    for plate, data in pairs(vehicleRegistry) do
+        local ownerOnline = data.owner and GetPlayerName(data.owner) ~= nil or false
+        list[#list + 1] = {
+            plate = plate,
+            job = data.job,
+            ownerName = data.ownerName,
+            citizenid = data.citizenid,
+            ownerSource = data.owner,
+            ownerOnline = ownerOnline,
+            secondsActive = os.time() - data.time,
+        }
+    end
+    table.sort(list, function(a, b)
+        return a.secondsActive > b.secondsActive
+    end)
+    return list
+end)
+
+lib.callback.register('jk-helper:server:releasePlate', function(src, plate)
+    if not DB.isAdmin(src) then return { success = false, message = 'Not authorized' } end
+    if type(plate) ~= 'string' or plate == '' then
+        return { success = false, message = 'Invalid plate' }
+    end
+    plate = plate:upper()
+    if vehicleRegistry[plate] then
+        vehicleRegistry[plate] = nil
+        return { success = true, message = ('Plate %s released'):format(plate) }
+    end
+    return { success = false, message = ('Plate %s not found'):format(plate) }
+end)
+
+lib.callback.register('jk-helper:server:releaseAllPlates', function(src)
+    if not DB.isAdmin(src) then return { success = false, message = 'Not authorized' } end
+    local count = 0
+    for plate in pairs(vehicleRegistry) do
+        vehicleRegistry[plate] = nil
+        count = count + 1
+    end
+    return { success = true, message = ('Released %d plates'):format(count) }
+end)
+
+lib.callback.register('jk-helper:server:clonePoint', function(src, uuid, overrides)
+    if not DB.isAdmin(src) then return { success = false, message = 'Not authorized' } end
+    if type(uuid) ~= 'string' or uuid == '' then
+        return { success = false, message = 'Invalid point' }
+    end
+    local success = DB.clonePoint(uuid, overrides)
+    if success then
+        loadAndSync()
+        return { success = true, message = 'Point cloned' }
+    end
+    return { success = false, message = 'Failed to clone point' }
 end)
 
 -- Admin command to manually release a plate

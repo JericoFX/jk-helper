@@ -33,45 +33,44 @@ local function CreateBlip(blipConfig)
     return blip
 end
 
-local function onEnter(self)
-    local job = Player.job
-    if type(job) ~= "table" then return end
+local function hasAccess(zone)
+    if not zone or not zone.data then return false end
 
-    local jobName = job.name
-    if self.data.requireJob ~= false and (jobName == nil or self.data.job ~= jobName) then return end
+    if zone.data.requireJob == false then return true end
 
-    local grade = job.grade
-    local gradeLevel = type(grade) == "table" and grade.level or nil
-    if self.data.grade and (gradeLevel == nil or gradeLevel < self.data.grade) then return end
+    if not Player.job or not Player.job.name then return false end
+    if zone.data.job and zone.data.job ~= Player.job.name then return false end
 
-    lib.showTextUI(("[E] Open %s"):format(self.data.type):upper())
+    if zone.data.grade then
+        local gradeLevel = Player.job.grade and Player.job.grade.level or 0
+        if gradeLevel < zone.data.grade then return false end
+    end
+
+    return true
 end
 
-local function onExit(self)
+local function onEnter(zone)
+    if not hasAccess(zone) then return end
+    lib.showTextUI(("[E] Open %s"):format(zone.data.type):upper())
+end
+
+local function onExit()
     lib.hideTextUI()
 end
 
-local function inside(self)
-    local job = Player.job
-    if type(job) ~= "table" then return end
+local function inside(zone)
+    if not hasAccess(zone) then return end
 
-    local jobName = job.name
-    if self.data.requireJob ~= false and (jobName == nil or self.data.job ~= jobName) then return end
-
-    local grade = job.grade
-    local gradeLevel = type(grade) == "table" and grade.level or nil
-    if self.data.grade and (gradeLevel == nil or gradeLevel < self.data.grade) then return end
-
-    local typeZone = self.data.type
+    local typeZone = zone.data.type
     local PlayerCoords = GetEntityCoords(cache.ped)
-    local currentDistance = #(self.coords - PlayerCoords)
-    DrawMarker(2, self.coords.x, self.coords.y, self.coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,
+    local currentDistance = #(zone.coords - PlayerCoords)
+    DrawMarker(2, zone.coords.x, zone.coords.y, zone.coords.z, 0.0, 0.0, 0.0, 0.0, 180.0,
         0.0,
         0.5, 0.5, 0.5,
         200,
         255, 255, 255, false, true, 2, false, nil, nil, false)
     if currentDistance <= 2 and IsControlJustReleased(0, 38) then
-        if typeZone == "boss" and not (Player.job.isboss) then
+        if typeZone == "boss" and not (Player.job and Player.job.isboss) then
             lib.notify({
                 title = "Boss",
                 description = "You are not a boss",
@@ -79,7 +78,7 @@ local function inside(self)
             })
             return
         end
-        Points[self.data.job][typeZone]:Open()
+        zone:Open()
     end
 end
 
@@ -152,22 +151,56 @@ local function createZones()
             end
         end
         if el.shop then
-            if not Points[k].shop or not Points[k].shop.zone then
-                local els = lib.table.deepclone(el.shop)
-                if table.type(v.shop.locations) == "array" and #v.shop.locations >= 2 then
-                    for i = 1, #v.shop.locations do
-                        Points[k].shop = Zones:new(k, "shop", els.locations[i],
-                            { type = "shop", label = els.label, job = k, id = i, requireJob = els.requireJob }, onEnter,
-                            onExit, inside)
-                        Points[k].shop:Create()
+            if Points[k].shop and Points[k].shop.delete and type(Points[k].shop.delete) == "function" then
+                Points[k].shop:delete()
+                Points[k].shop = {}
+            end
+
+            Points[k].shop = Points[k].shop or {}
+
+            local els = lib.table.deepclone(el.shop)
+            local locations = {}
+
+            if table.type(els.locations) == "array" then
+                locations = els.locations
+            elseif els.locations then
+                locations = { els.locations }
+            elseif els.coords then
+                locations = { els.coords }
+            end
+
+            if #locations > 0 then
+                local validIndices = {}
+
+                for i = 1, #locations do
+                    validIndices[i] = true
+                    if Points[k].shop[i] then
+                        Points[k].shop[i]:delete()
+                    end
+
+                    Points[k].shop[i] = Zones:new(k, "shop", locations[i],
+                        { type = "shop", label = els.label, job = k, id = i, requireJob = els.requireJob },
+                        onEnter, onExit, inside)
+                    Points[k].shop[i]:Create()
+                end
+
+                for idx, zone in pairs(Points[k].shop) do
+                    if not validIndices[idx] then
+                        if zone and zone.delete and type(zone.delete) == "function" then
+                            zone:delete()
+                        end
+                        Points[k].shop[idx] = nil
                     end
                 end
-                Points[k].shop = Zones:new(k, "shop", els.locations[1],
-                    { type = "shop", label = els.label, job = k, id = 1, requireJob = els.requireJob },
-                    onEnter, onExit, inside)
-                Points[k].shop:Create()
-                els = nil
+            elseif next(Points[k].shop) ~= nil then
+                for idx, zone in pairs(Points[k].shop) do
+                    if zone and zone.delete and type(zone.delete) == "function" then
+                        zone:delete()
+                    end
+                    Points[k].shop[idx] = nil
+                end
             end
+
             if el.shop.blip then
                 Blips[#Blips + 1] = CreateBlip(el.shop.blip)
             end
@@ -192,8 +225,10 @@ local function createZones()
         if el.cloth then
             if not Points[k].cloth or not Points[k].cloth.zone then
                 local els = lib.table.deepclone(el.cloth)
+                local eventData = els.event or (els.data and (els.data.event or els.data.eventName))
+                local label = els.label or "Cloth"
                 Points[k].cloth = Zones:new(k, "cloth", els.coords,
-                    { type = "cloth", label = "Cloth", data = els.event, job = k },
+                    { type = "cloth", label = label, data = eventData, job = k, eventName = type(eventData) == "string" and eventData or nil },
                     onEnter, onExit, inside)
                 Points[k].cloth:Create()
                 els = nil
@@ -218,7 +253,164 @@ local function createZones()
     end
 end
 
+local function isVector(value)
+    local valueType = type(value)
+    return valueType == "vector3" or valueType == "vector4" or valueType == "vector2"
+end
+
+local function vectorEquals(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+    if not isVector(a) or not isVector(b) then return false end
+
+    local components = { "x", "y", "z" }
+    if type(a) == "vector4" or type(b) == "vector4" then
+        components[#components + 1] = "w"
+    end
+
+    for i = 1, #components do
+        local axis = components[i]
+        if not (a[axis] and b[axis]) then return false end
+        if math.abs(a[axis] - b[axis]) > 0.001 then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function deepEqual(a, b)
+    if a == b then return true end
+    if isVector(a) or isVector(b) then
+        return vectorEquals(a, b)
+    end
+    if type(a) ~= type(b) then return false end
+    if type(a) ~= "table" then
+        return a == b
+    end
+
+    local checked = {}
+    for key, value in pairs(a) do
+        if not deepEqual(value, b[key]) then
+            return false
+        end
+        checked[key] = true
+    end
+
+    for key in pairs(b) do
+        if not checked[key] then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function extractComparableData(pointType, data)
+    if not data then return nil end
+
+    local sanitized = {}
+
+    if pointType == "garage" then
+        sanitized.coords = data.coords
+        sanitized.returnCoords = data.returnCoords
+        sanitized.spawnCoords = data.spawnCoords
+        sanitized.deleteCoords = data.deleteCoords
+        sanitized.title = data.title
+        sanitized.livery = data.livery
+        sanitized.grade = data.grade
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+        sanitized.options = data.options
+        sanitized.job = data.job
+    elseif pointType == "shop" then
+        sanitized.locations = data.locations
+        sanitized.label = data.label or data.name
+        sanitized.name = data.name
+        sanitized.inventory = data.inventory
+        sanitized.requireJob = data.requireJob
+        sanitized.grades = data.grades
+        sanitized.job = data.job
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+        sanitized.options = data.options
+    else
+        sanitized.coords = data.coords
+        sanitized.label = data.label
+        sanitized.grade = data.grade
+        sanitized.slots = data.slots
+        sanitized.weight = data.weight
+        sanitized.job = data.job
+        sanitized.data = type(data.data) ~= "function" and data.data or nil
+    end
+
+    return sanitized
+end
+
+local function hasRelevantChanges(pointType, oldPoint, newPoint)
+    if not oldPoint and newPoint then return true end
+    if not newPoint and oldPoint then return true end
+    if not oldPoint and not newPoint then return false end
+
+    local oldComparable = extractComparableData(pointType, oldPoint)
+    local newComparable = extractComparableData(pointType, newPoint)
+
+    if not oldComparable and newComparable then return true end
+    if not newComparable and oldComparable then return true end
+
+    if pointType == "garage" then
+        if not vectorEquals(oldComparable.coords, newComparable.coords) then return true end
+        if not vectorEquals(oldComparable.returnCoords, newComparable.returnCoords) then return true end
+        if not vectorEquals(oldComparable.spawnCoords, newComparable.spawnCoords) then return true end
+        if (oldComparable.deleteCoords or newComparable.deleteCoords) and not vectorEquals(oldComparable.deleteCoords,
+            newComparable.deleteCoords) then return true end
+    elseif pointType == "shop" then
+        local oldLocations = oldComparable.locations or {}
+        local newLocations = newComparable.locations or {}
+        if #oldLocations ~= #newLocations then return true end
+        for i = 1, #oldLocations do
+            if not vectorEquals(oldLocations[i], newLocations[i]) then
+                return true
+            end
+        end
+    else
+        if not vectorEquals(oldComparable.coords, newComparable.coords) then return true end
+    end
+
+    if (oldComparable.label or oldComparable.name) ~= (newComparable.label or newComparable.name) then return true end
+    if (oldComparable.grade or 0) ~= (newComparable.grade or 0) then return true end
+
+    if not deepEqual(oldComparable.options, newComparable.options) then return true end
+    if not deepEqual(oldComparable.inventory, newComparable.inventory) then return true end
+    if not deepEqual(oldComparable.data, newComparable.data) then return true end
+    if not deepEqual(oldComparable.job, newComparable.job) then return true end
+    if not deepEqual(oldComparable.slots, newComparable.slots) then return true end
+    if not deepEqual(oldComparable.weight, newComparable.weight) then return true end
+    if pointType == "garage" then
+        if oldComparable.title ~= newComparable.title then return true end
+        if oldComparable.livery ~= newComparable.livery then return true end
+    elseif pointType == "shop" then
+        if oldComparable.requireJob ~= newComparable.requireJob then return true end
+        if not deepEqual(oldComparable.grades, newComparable.grades) then return true end
+        if oldComparable.name ~= newComparable.name then return true end
+    end
+
+    return false
+end
+
 local function updatePoints(newConfig)
+    local function deletePointEntry(entry)
+        if type(entry) ~= "table" then return end
+
+        if entry.delete and type(entry.delete) == "function" then
+            entry:delete()
+            return
+        end
+
+        for key, value in pairs(entry) do
+            deletePointEntry(value)
+            entry[key] = nil
+        end
+    end
+
     -- Clear all blips first and recreate them
     if #Blips > 0 then
         for i = 1, #Blips do
@@ -227,27 +419,47 @@ local function updatePoints(newConfig)
         Blips = {}
     end
 
+    local oldConfig = Config or { jobs = {} }
+    newConfig.jobs = newConfig.jobs or {}
+
     -- Check existing points and remove those that no longer exist in new config
     for job, jobPoints in pairs(Points) do
         if not newConfig.jobs[job] then
-            -- Job completely removed, delete all its points
-            for pointType, point in pairs(jobPoints) do
+            for _, point in pairs(jobPoints) do
                 if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
                     point:delete()
                 end
             end
             Points[job] = nil
         else
-            -- Job still exists, check individual point types
             for pointType, point in pairs(jobPoints) do
                 if not newConfig.jobs[job][pointType] then
-                    -- This point type was removed for this job
                     if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
                         point:delete()
                     end
                     Points[job][pointType] = nil
+                else
+                    local oldPointConfig = oldConfig.jobs[job] and oldConfig.jobs[job][pointType]
+                    local newPointConfig = newConfig.jobs[job][pointType]
+                    if hasRelevantChanges(pointType, oldPointConfig, newPointConfig) then
+                        if point and type(point) == "table" and point.delete and type(point.delete) == "function" then
+                            point:delete()
+                        end
+                        Points[job][pointType] = nil
+                    end
                 end
             end
+
+            for i = 1, #removedTypes do
+                jobPoints[removedTypes[i]] = nil
+            end
+        end
+    end
+
+    -- Ensure points exist for new jobs that might not have been present before
+    for job in pairs(newConfig.jobs) do
+        if not Points[job] then
+            Points[job] = {}
         end
     end
 

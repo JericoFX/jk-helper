@@ -11,6 +11,10 @@ local pointTypes = {
     { label = 'DJ',            value = 'dj' },
 }
 
+local function trim(value)
+    return value and value:match('^%s*(.-)%s*$') or value
+end
+
 -- Helper that lets the admin aim at the ground and press E to select the point location using a live raycast preview
 local function pickCoords()
     lib.showTextUI('[E] Select location')
@@ -29,6 +33,21 @@ local function pickCoords()
     end
     lib.hideTextUI()
     return coords
+end
+
+local function formatDuration(seconds)
+    seconds = math.max(seconds or 0, 0)
+    local minutes = math.floor(seconds / 60)
+    local hours = math.floor(minutes / 60)
+    minutes = minutes % 60
+    local secs = seconds % 60
+    if hours > 0 then
+        return ('%dh %02dm'):format(hours, minutes)
+    elseif minutes > 0 then
+        return ('%dm %02ds'):format(minutes, secs)
+    else
+        return ('%ds'):format(secs)
+    end
 end
 
 local function openCreatePointDialog()
@@ -75,6 +94,7 @@ local function openCreatePointDialog()
         end
 
         local options = {}
+        local clothEvent = nil
         if pType == 'stash' or pType == 'privateStash' then
             local extra = lib.inputDialog('Stash Options', {
                 { type = 'number', label = 'Slots',      default = 100 },
@@ -167,6 +187,20 @@ local function openCreatePointDialog()
             options.returnCoords = { x = returnCoords.x, y = returnCoords.y, z = returnCoords.z }
             options.deleteCoords = { x = deleteCoords.x, y = deleteCoords.y, z = deleteCoords.z }
             if next(liveryMap) then options.livery = liveryMap end
+        elseif pType == 'cloth' then
+            local clothInput = lib.inputDialog('Clothing Point', {
+                { type = 'input', label = 'Client Event to trigger', placeholder = 'qb-clothing:client:openOutfitMenu' },
+            })
+            if not clothInput then return end
+            clothEvent = trim(clothInput[1])
+            if not clothEvent or clothEvent == '' then
+                lib.notify({
+                    title = 'Clothing',
+                    description = 'You must provide a client event to trigger',
+                    type = 'error'
+                })
+                return
+            end
         end
 
         -- We already grabbed the coords earlier
@@ -193,6 +227,10 @@ local function openCreatePointDialog()
             options = options,
             blip = blip,
         }
+
+        if clothEvent then
+            data.data = clothEvent
+        end
 
         TriggerServerEvent('jk-helper:server:addPoint', data)
         lib.notify({ title = 'JK Helper', description = 'Point created successfully', type = 'success' })
@@ -226,6 +264,14 @@ local function openManagePointsMenu()
                             args = { action = 'edit', point = point }
                         },
                         {
+                            label = 'Move',
+                            args = { action = 'move', point = point }
+                        },
+                        {
+                            label = 'Clone',
+                            args = { action = 'clone', point = point }
+                        },
+                        {
                             label = 'Delete',
                             args = { action = 'delete', point = point }
                         },
@@ -249,6 +295,48 @@ local function openManagePointsMenu()
                                     TriggerServerEvent('jk-helper:server:updatePoint', point.uuid, fields)
                                     lib.notify({ title = 'JK Helper', description = 'Point updated', type = 'success' })
                                 end
+                            elseif actionArgs.action == 'move' then
+                                lib.hideMenu()
+                                local coordsVec = pickCoords()
+                                if coordsVec then
+                                    local fields = { coords = { x = coordsVec.x, y = coordsVec.y, z = coordsVec.z } }
+                                    TriggerServerEvent('jk-helper:server:updatePoint', point.uuid, fields)
+                                    lib.notify({ title = 'JK Helper', description = 'Point moved', type = 'success' })
+                                end
+                                openManagePointsMenu()
+                            elseif actionArgs.action == 'clone' then
+                                lib.hideMenu()
+                                local coordsVec = pickCoords()
+                                if coordsVec then
+                                    local inputs = lib.inputDialog('Clone Point ' .. point.uuid:sub(1, 8), {
+                                        { type = 'input',  label = 'Label', default = point.label or '' },
+                                        { type = 'number', label = 'Grade', default = point.grade or 0 },
+                                    })
+                                    if inputs then
+                                        local labelInput, gradeInput = table.unpack(inputs)
+                                        local overrides = {
+                                            coords = { x = coordsVec.x, y = coordsVec.y, z = coordsVec.z },
+                                            label = labelInput,
+                                        }
+                                        if gradeInput ~= nil then
+                                            overrides.grade = tonumber(gradeInput) or point.grade or 0
+                                        end
+                                        lib.callback('jk-helper:server:clonePoint', false, function(result)
+                                            if result and result.message then
+                                                lib.notify({
+                                                    title = 'JK Helper',
+                                                    description = result.message,
+                                                    type = result.success and 'success' or 'error'
+                                                })
+                                            end
+                                            openManagePointsMenu()
+                                        end, point.uuid, overrides)
+                                    else
+                                        openManagePointsMenu()
+                                    end
+                                else
+                                    openManagePointsMenu()
+                                end
                             elseif actionArgs.action == 'delete' then
                                 local confirm = lib.alertDialog({
                                     header = 'Delete',
@@ -270,7 +358,87 @@ local function openManagePointsMenu()
     end)
 end
 
+local function openVehicleRegistryPanel()
+    lib.callback('jk-helper:server:isAdmin', false, function(isAdmin)
+        if not isAdmin then
+            lib.notify({ title = 'Permission', description = 'You are not admin', type = 'error' })
+            return
+        end
+
+        lib.callback('jk-helper:server:getVehicleRegistry', false, function(entries)
+            if not entries or #entries == 0 then
+                lib.notify({ title = 'Vehicle Registry', description = 'No active plates', type = 'info' })
+                return
+            end
+
+            local opts = {}
+            for i, entry in ipairs(entries) do
+                local status = entry.ownerOnline and 'Online' or 'Offline'
+                local description = ('Owner: %s\nCitizen ID: %s\nJob: %s\nStatus: %s\nTime Active: %s'):format(
+                    entry.ownerName or 'Unknown',
+                    entry.citizenid or 'N/A',
+                    entry.job or 'N/A',
+                    status,
+                    formatDuration(entry.secondsActive)
+                )
+                opts[#opts + 1] = {
+                    label = ('[%s] %s'):format(entry.plate, status),
+                    description = description,
+                    args = { action = 'release', plate = entry.plate }
+                }
+            end
+            opts[#opts + 1] = {
+                label = 'Release All Plates',
+                description = 'Force release of every tracked plate',
+                args = { action = 'release_all' }
+            }
+
+            lib.registerMenu({ id = 'jk_vehicle_registry', title = 'JK Helper - Vehicle Registry', options = opts },
+                function(_, _, args)
+                    if args.action == 'release' then
+                        lib.hideMenu()
+                        lib.callback('jk-helper:server:releasePlate', false, function(result)
+                            if result and result.message then
+                                lib.notify({
+                                    title = 'Vehicle Registry',
+                                    description = result.message,
+                                    type = result.success and 'success' or 'error'
+                                })
+                            end
+                            openVehicleRegistryPanel()
+                        end, args.plate)
+                    elseif args.action == 'release_all' then
+                        local confirm = lib.alertDialog({
+                            header = 'Vehicle Registry',
+                            content = 'Release all tracked plates?',
+                            centered = true,
+                            cancel = true
+                        })
+                        if confirm == 'confirm' then
+                            lib.hideMenu()
+                            lib.callback('jk-helper:server:releaseAllPlates', false, function(result)
+                                if result and result.message then
+                                    lib.notify({
+                                        title = 'Vehicle Registry',
+                                        description = result.message,
+                                        type = result.success and 'success' or 'error'
+                                    })
+                                end
+                                openVehicleRegistryPanel()
+                            end)
+                        else
+                            lib.showMenu('jk_vehicle_registry')
+                        end
+                    end
+                end)
+            lib.showMenu('jk_vehicle_registry')
+        end)
+    end)
+end
+
 RegisterCommand('jkcreatepoint', openCreatePointDialog, false)
 RegisterKeyMapping('jkcreatepoint', 'JK Helper: Create Point (Admin)', 'keyboard', 'F7')
 RegisterCommand('jkmanagepoints', openManagePointsMenu, false)
 RegisterKeyMapping('jkmanagepoints', 'JK Helper: Manage Points (Admin)', 'keyboard', 'F9')
+RegisterCommand('jkvehregistry', openVehicleRegistryPanel, false)
+RegisterKeyMapping('jkvehregistry', 'JK Helper: Vehicle Registry (Admin)', 'keyboard', 'F10')
