@@ -51,8 +51,13 @@ local function buildConfig(jobsRows, pointsRows)
         if jobName then
             local uuid = p.uuid -- keep reference for admin operations
             local coordsVec = (function(c) local t=json.decode(c); return vector3(t.x, t.y, t.z) end)(p.coords)
+            local dataPayload = nil
+            if p.data then
+                local ok, decoded = pcall(json.decode, p.data)
+                if ok then dataPayload = decoded end
+            end
             if p.type == 'shop' then
-              
+
                 local opts = p.options and json.decode(p.options) or {}
                if opts.requireJob == false or opts.requireJob == "false" or opts.requireJob == 0 then
                 opts.requireJob = false
@@ -94,11 +99,17 @@ local function buildConfig(jobsRows, pointsRows)
                     grade = p.grade,
                     slots = opts.slots,
                     weight = opts.weight,
-                    data = opts.data or {},
+                    data = dataPayload or opts.data or {},
                     blip = p.blip and json.decode(p.blip) or nil,
                 }
                 cfg.jobs[jobName][p.type].job = opts.job or { [jobName] = p.grade or 0 }
                 cfg.jobs[jobName][p.type].uuid = uuid
+                if p.type == 'cloth' then
+                    cfg.jobs[jobName][p.type].event = dataPayload
+                    if type(cfg.jobs[jobName][p.type].data) ~= 'table' then
+                        cfg.jobs[jobName][p.type].data = {}
+                    end
+                end
             end
         end
     end

@@ -11,6 +11,10 @@ local pointTypes = {
     { label = 'DJ',            value = 'dj' },
 }
 
+local function trim(value)
+    return value and value:match('^%s*(.-)%s*$') or value
+end
+
 -- Helper that lets the admin aim at the ground and press E to select the point location using a live raycast preview
 local function pickCoords()
     lib.showTextUI('[E] Select location')
@@ -90,6 +94,7 @@ local function openCreatePointDialog()
         end
 
         local options = {}
+        local clothEvent = nil
         if pType == 'stash' or pType == 'privateStash' then
             local extra = lib.inputDialog('Stash Options', {
                 { type = 'number', label = 'Slots',      default = 100 },
@@ -182,6 +187,20 @@ local function openCreatePointDialog()
             options.returnCoords = { x = returnCoords.x, y = returnCoords.y, z = returnCoords.z }
             options.deleteCoords = { x = deleteCoords.x, y = deleteCoords.y, z = deleteCoords.z }
             if next(liveryMap) then options.livery = liveryMap end
+        elseif pType == 'cloth' then
+            local clothInput = lib.inputDialog('Clothing Point', {
+                { type = 'input', label = 'Client Event to trigger', placeholder = 'qb-clothing:client:openOutfitMenu' },
+            })
+            if not clothInput then return end
+            clothEvent = trim(clothInput[1])
+            if not clothEvent or clothEvent == '' then
+                lib.notify({
+                    title = 'Clothing',
+                    description = 'You must provide a client event to trigger',
+                    type = 'error'
+                })
+                return
+            end
         end
 
         -- We already grabbed the coords earlier
@@ -208,6 +227,10 @@ local function openCreatePointDialog()
             options = options,
             blip = blip,
         }
+
+        if clothEvent then
+            data.data = clothEvent
+        end
 
         TriggerServerEvent('jk-helper:server:addPoint', data)
         lib.notify({ title = 'JK Helper', description = 'Point created successfully', type = 'success' })
