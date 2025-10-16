@@ -173,8 +173,10 @@ local function createZones()
         if el.cloth then
             if not Points[k].cloth or not Points[k].cloth.zone then
                 local els = lib.table.deepclone(el.cloth)
+                local eventData = els.event or (els.data and (els.data.event or els.data.eventName))
+                local label = els.label or "Cloth"
                 Points[k].cloth = Zones:new(k, "cloth", els.coords,
-                    { type = "cloth", label = "Cloth", data = els.event, job = k },
+                    { type = "cloth", label = label, data = eventData, job = k, eventName = type(eventData) == "string" and eventData or nil },
                     onEnter, onExit, inside)
                 Points[k].cloth:Create()
                 els = nil
