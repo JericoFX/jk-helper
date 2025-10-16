@@ -450,9 +450,6 @@ local function updatePoints(newConfig)
                 end
             end
 
-            for i = 1, #removedTypes do
-                jobPoints[removedTypes[i]] = nil
-            end
         end
     end
 
