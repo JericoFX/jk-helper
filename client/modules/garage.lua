@@ -222,6 +222,54 @@ function Garages:CreatePoints()
     end
 end
 
+function Garages:delete()
+    if self.garage and self.garage.remove then
+        self.garage:remove()
+    end
+    if self.points and self.points.remove then
+        self.points:remove()
+    end
+    if self.deletePoint and self.deletePoint.remove then
+        self.deletePoint:remove()
+    end
+    if lib.removeMenu then
+        lib.removeMenu(self.id .. "_Menu")
+    end
+    self.garage = nil
+    self.points = nil
+    self.deletePoint = nil
+end
+
+function Garages:update(coords, data, options, returnCoords, spawnCoords, livery, deleteCoords, title)
+    if coords then
+        self.coords = coords
+    end
+    if data then
+        self.data = data
+    end
+    if options then
+        self.options = type(options) == "table" and options or { options }
+    end
+    if returnCoords then
+        self.returnCoords = returnCoords
+    end
+    if spawnCoords then
+        self.spawnCoords = spawnCoords
+    end
+    if deleteCoords ~= nil then
+        self.deleteCoords = deleteCoords
+    end
+    if livery ~= nil then
+        self.livery = livery
+    end
+    if title then
+        self.title = title
+    end
+    self:delete()
+    self:Create()
+    self:CreatePoints()
+end
+
 function Garages:CreateVehicle(hash)
     if not hasJobAccess(self.data) then
         lib.notify({
