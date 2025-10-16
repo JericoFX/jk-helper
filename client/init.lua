@@ -15,7 +15,10 @@ RegisterNetEvent('QBCore:Client:OnJobUpdate', function(job)
 end)
 
 RegisterNetEvent('QBCore:Client:SetPlayerData', function(val)
-    Player.job = val
+    if type(val) == "table" then
+        Player = val
+        Player.job = val.job
+    end
 end)
 
 local function CreateBlip(blipConfig)
