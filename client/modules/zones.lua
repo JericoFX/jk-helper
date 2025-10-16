@@ -62,7 +62,31 @@ function Zones:Open()
     elseif self.type == "shop" then
         ox:openInventory("shop", { type = self.name, id = self.data.id })
     elseif self.type == "cloth" then
-        self.data.data()
+        local action = self.data and self.data.data
+        local actionType = type(action)
+        if actionType == "function" then
+            action()
+        elseif actionType == "string" then
+            local eventName = action ~= "" and action or nil
+            if not eventName and self.data and type(self.data.eventName) == "string" and self.data.eventName ~= "" then
+                eventName = self.data.eventName
+            end
+            if eventName and eventName ~= "" then
+                TriggerEvent(eventName)
+            else
+                lib.notify({
+                    title = 'Clothing',
+                    description = 'No clothing event configured for this point',
+                    type = 'error'
+                })
+            end
+        else
+            lib.notify({
+                title = 'Clothing',
+                description = 'Invalid clothing configuration',
+                type = 'error'
+            })
+        end
     elseif self.type == "dj" then
         if GetResourceState('fx-djsound') == 'started' then
             exports['fx-djsound']:openDjPanel()
@@ -81,6 +105,17 @@ function Zones:delete()
         self.zone:remove()
     end
     self.zone = nil
+end
+
+function Zones:update(coords, data)
+    if coords then
+        self.coords = coords
+    end
+    if data then
+        self.data = data
+    end
+    self:delete()
+    self:Create()
 end
 
 return Zones

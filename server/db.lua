@@ -51,8 +51,13 @@ local function buildConfig(jobsRows, pointsRows)
         if jobName then
             local uuid = p.uuid -- keep reference for admin operations
             local coordsVec = (function(c) local t=json.decode(c); return vector3(t.x, t.y, t.z) end)(p.coords)
+            local dataPayload = nil
+            if p.data then
+                local ok, decoded = pcall(json.decode, p.data)
+                if ok then dataPayload = decoded end
+            end
             if p.type == 'shop' then
-              
+
                 local opts = p.options and json.decode(p.options) or {}
                if opts.requireJob == false or opts.requireJob == "false" or opts.requireJob == 0 then
                 opts.requireJob = false
@@ -94,11 +99,17 @@ local function buildConfig(jobsRows, pointsRows)
                     grade = p.grade,
                     slots = opts.slots,
                     weight = opts.weight,
-                    data = opts.data or {},
+                    data = dataPayload or opts.data or {},
                     blip = p.blip and json.decode(p.blip) or nil,
                 }
                 cfg.jobs[jobName][p.type].job = opts.job or { [jobName] = p.grade or 0 }
                 cfg.jobs[jobName][p.type].uuid = uuid
+                if p.type == 'cloth' then
+                    cfg.jobs[jobName][p.type].event = dataPayload
+                    if type(cfg.jobs[jobName][p.type].data) ~= 'table' then
+                        cfg.jobs[jobName][p.type].data = {}
+                    end
+                end
             end
         end
     end
@@ -172,4 +183,41 @@ function DB.getAllPoints()
     return rows
 end
 
-return DB 
+function DB.clonePoint(uuid, overrides)
+    overrides = overrides or {}
+    local rows = MySQL.query.await('SELECT * FROM jk_job_points WHERE uuid = ?', { uuid }) or {}
+    local source = rows[1]
+    if not source then return false end
+
+    local coordsJson = source.coords
+    if overrides.coords then
+        coordsJson = json.encode(overrides.coords)
+    end
+
+    local label = overrides.label
+    if label == '' then label = nil end
+    if label == nil then label = source.label end
+
+    local grade = overrides.grade
+    if grade == nil then
+        grade = source.grade
+    end
+
+    local insert = MySQL.query.await('INSERT INTO jk_job_points(job_id, type, coords, label, grade, options, blip, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
+        source.job_id,
+        source.type,
+        coordsJson,
+        label,
+        grade,
+        source.options,
+        source.blip,
+        source.data,
+    })
+
+    if not insert then return false end
+    if insert.affectedRows and insert.affectedRows > 0 then return true end
+    if insert.insertId then return true end
+    return true
+end
+
+return DB
